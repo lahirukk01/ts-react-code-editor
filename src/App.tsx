@@ -5,13 +5,35 @@ import { Message } from 'esbuild-wasm';
 import { unpkgPathPlugin } from './plugins/unpkg-path-plugin.ts';
 import { fetchPlugin } from './plugins/fetch-plugin.ts';
 
+const getIframeHtml = () => {
+  return `
+    <html lang="">
+      <head><title>Sandbox</title></head>
+      <body>
+        <div id="root"></div>
+        <script>
+          window.addEventListener('message', (event) => {
+            try {
+              eval(event.data);
+            } catch (err) {
+              const root = document.getElementById('root');
+              root.innerHTML = '<div style="color: red;"><h4>Runtime Error</h4>' + err + '</div>';
+              console.error(err);
+            }
+          });
+        </script>
+      </body>
+    </html>
+  `;
+};
+
 const App: React.FC = ()=> {
   const [serviceReady, setServiceReady] = useState(false);
-  const [codeOutput, setCodeOutput] = useState('');
   const [warnings, setWarnings] = useState<Message[]>([]);
 
   const codeInputRef = useRef<HTMLTextAreaElement | null>(null);
   const initializedRef = useRef(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const startService = async () => {
     initializedRef.current = true;
@@ -24,12 +46,14 @@ const App: React.FC = ()=> {
 
   useEffect(() => {
     if (initializedRef.current) return;
-    startService();
+    startService().then(() => {});
   }, []);
 
-  const handleCodeExecute = async () => {
-    if (!serviceReady) return;
+  // const html = useMemo(() => getIframeHtml(), []);
 
+  const handleCodeExecute = async () => {
+    if (!serviceReady || !iframeRef.current) return;
+    iframeRef.current.srcdoc = getIframeHtml();
     const code = codeInputRef.current?.value ?? '';
 
     const output = await esbuild.build({
@@ -43,11 +67,9 @@ const App: React.FC = ()=> {
       plugins: [unpkgPathPlugin(), fetchPlugin(code)],
       target: ['es2022'],
     });
-    // console.log(output.outputFiles[0].text);
-    setCodeOutput(output.outputFiles[0].text);
+
+    iframeRef.current?.contentWindow?.postMessage(output.outputFiles[0].text, '*');
     setWarnings(output.warnings);
-    const result = eval(output.outputFiles[0].text);
-    console.log('ExR', result);
   };
 
   if (!serviceReady) return <div>Loading...</div>;
@@ -62,9 +84,12 @@ const App: React.FC = ()=> {
       <div>
         <div>
           <h2>Output</h2>
-          <pre
-            style={{ 'overflowX': 'scroll', 'width': '100%' }}
-          >{codeOutput}</pre>
+          <iframe
+            ref={iframeRef} width="100%"
+            title="output"
+            srcDoc=""
+            sandbox="allow-scripts"
+          />
         </div>
         <div>
           <h2>Warnings</h2>
