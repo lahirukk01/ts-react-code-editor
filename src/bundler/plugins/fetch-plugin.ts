@@ -41,8 +41,9 @@ export const fetchPlugin = (code: string) => {
     setup(build: esbuild.PluginBuild) {
       build.onLoad(
         { filter: /^index\.js$/ },
+      // @ts-ignore
         async (args: esbuild.OnLoadArgs) => {
-          console.log('onLoad-index.js', args);
+          // console.log('onLoad-index.js', args);
           return {
             loader: 'jsx',
             contents: code,
@@ -51,7 +52,7 @@ export const fetchPlugin = (code: string) => {
       );
 
       build.onLoad({ filter: /.*/ }, async (args: any) => {
-        console.log('onLoad-cache', args);
+        // console.log('onLoad-cache', args);
         const cachedFile = await fileCache.getItem<esbuild.OnLoadResult>(
           args.path
         );
@@ -64,7 +65,7 @@ export const fetchPlugin = (code: string) => {
       });
 
       build.onLoad({ filter: /\.css$/ }, async (args: esbuild.OnLoadArgs) => {
-        console.log('onLoad-css', args);
+        // console.log('onLoad-css', args);
 
         let { contents, resolveDir } = await fetchFileDetails(args.path);
 
@@ -83,7 +84,7 @@ export const fetchPlugin = (code: string) => {
       });
 
       build.onLoad({ filter: /.*/ }, async (args: esbuild.OnLoadArgs) => {
-        console.log('onLoad-js', args);
+        // console.log('onLoad-js', args);
 
         const { contents, resolveDir } = await fetchFileDetails(args.path);
 
